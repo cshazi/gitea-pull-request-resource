@@ -50,7 +50,7 @@ new_versions=''
 
 for i in $(seq 0 $((num_mrs - 1))); do
     mr="$(echo "${open_mrs}" | jq -r '.['"$i"']')"
-    mr_sha="$(echo "${mr}" | jq -r '.sha')"
+    mr_sha="$(echo "${mr}" | jq -r '.head.sha')"
     if [ "${mr_sha}" != "null" ]; then
         set +e
         mr_updated_at="$(curl -m 4 -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/git/commits/${mr_sha}" \
