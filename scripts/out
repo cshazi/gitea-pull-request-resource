@@ -66,11 +66,12 @@ cd "${path_to_repo}"
 commit_sha="$(git rev-parse HEAD)"
 
 curl \
+    -s \
     --request POST \
     --header "Authorization: token ${private_token}" \
     --header 'Content-Type: application/json' \
     --data "{\"state\":\"${new_status}\",\"context\":\"${build_label}\",\"target_url\":\"${target_url}\"}" \
-    "${protocol}://${gitea_host}/api/v1/repos/${project_path}/statuses/${commit_sha}"
+    "${protocol}://${gitea_host}/api/v1/repos/${project_path}/statuses/${commit_sha}" > /dev/null
 
 version="{\"sha\":\"${commit_sha}\"}"
 

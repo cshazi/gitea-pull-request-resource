@@ -27,6 +27,7 @@ uri="$(jq -r '.source.uri // ""' < "${payload}")"
 username="$(jq -r '.source.username // ""' < "${payload}")"
 password="$(jq -r '.source.password // ""' < "${payload}")"
 private_key="$(jq -r '.source.private_key // ""' < "${payload}")"
+depth="$(jq -r '.source.depth // "100"' < "${payload}")"
 version="$(jq -r '.version // ""' < "${payload}")"
 commit_sha="$(echo "${version}" | jq -r '.sha // ""')"
 
@@ -49,7 +50,7 @@ else
     echo "default login ${username} password ${password}" > "${HOME}/.netrc" # Save credentials for git push below
 fi
 
-git clone "${uri}" "${destination}"
+git clone --depth "${depth}" "${uri}" "${destination}"
 
 cd "${destination}"
 
