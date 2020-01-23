@@ -17,7 +17,7 @@ if [ -z "${destination}" ]; then
     exit 1
 fi
 
-payload="$(mktemp "${TMPDIR}/gitlab-merge-request-resource.XXXXXX")"
+payload="$(mktemp "${TMPDIR}/gitea-pull-request-resource.XXXXXX")"
 
 cat > "${payload}" <&0
 
@@ -31,7 +31,7 @@ version="$(jq -r '.version // ""' < "${payload}")"
 commit_sha="$(echo "${version}" | jq -r '.sha // ""')"
 
 if [[ ! -z "${private_key}" ]]; then
-    gitlab_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
+    gitea_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
     port="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\2/p')"
     port=${port///} # remove trailing slash
 
@@ -41,9 +41,9 @@ if [[ ! -z "${private_key}" ]]; then
     chmod 500 "${id_rsa}"
 
     if [[ ! -z "${port}" ]]; then
-        ssh-keyscan -t rsa -p "${port}" "${gitlab_host}" > "${HOME}/.ssh/known_hosts"
+        ssh-keyscan -t rsa -p "${port}" "${gitea_host}" > "${HOME}/.ssh/known_hosts"
     else
-        ssh-keyscan -t rsa "${gitlab_host}" > "${HOME}/.ssh/known_hosts"
+        ssh-keyscan -t rsa "${gitea_host}" > "${HOME}/.ssh/known_hosts"
     fi
 else
     echo "default login ${username} password ${password}" > "${HOME}/.netrc" # Save credentials for git push below

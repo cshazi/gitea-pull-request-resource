@@ -1,7 +1,7 @@
 #!/bin/bash
 # vim: set ft=sh
 
-set -e -u
+set -e -ux
 
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
@@ -17,7 +17,7 @@ if [ -z "${destination}" ]; then
     exit 1
 fi
 
-payload="$(mktemp "${TMPDIR}/gitlab-merge-request-resource.XXXXXX")"
+payload="$(mktemp "${TMPDIR}/gitea-pull-request-resource.XXXXXX")"
 
 cat > "${payload}" <&0
 
@@ -41,16 +41,16 @@ if [ -z "${new_status}" ]; then
     exit 1
 fi
 
-gitlab_host=''
+gitea_host=''
 project_path=''
 protocol='https'
 if [[ ! -z "${private_key}" ]]; then
-    gitlab_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
+    gitea_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
     port="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\2/p')"
     port=${port///} # remove trailing slash
     project_path="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\3/p')"
 else
-    gitlab_host="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\2/p')"
+    gitea_host="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\2/p')"
     project_path="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\3/p')"
     protocol="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\1/p')"
 fi
@@ -67,10 +67,10 @@ commit_sha="$(git rev-parse HEAD)"
 
 curl \
     --request POST \
-    --header "PRIVATE-TOKEN: ${private_token}" \
+    --header "Authorization: token ${private_token}" \
     --header 'Content-Type: application/json' \
-    --data "{\"state\":\"${new_status}\",\"name\":\"${build_label}\",\"target_url\":\"${target_url}\"}" \
-    "${protocol}://${gitlab_host}/api/v3/projects/$(urlencode "${project_path}")/statuses/${commit_sha}"
+    --data "{\"state\":\"${new_status}\",\"context\":\"${build_label}\",\"target_url\":\"${target_url}\"}" \
+    "${protocol}://${gitea_host}/api/v1/repos/${project_path}/statuses/${commit_sha}"
 
 version="{\"sha\":\"${commit_sha}\"}"
 

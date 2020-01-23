@@ -1,28 +1,28 @@
-# GitLab Merge Request Concourse Resource
+# Gitea Pull Request Concourse Resource
 
-A concourse resource to check for new merge requests on GitLab and update the merge request status.
+A concourse resource to check for new pull requests on Gitea and update the pull request status.
 
 ## Source Configuration
 
 ```yaml
 resource_types:
-- name: merge-request
+- name: pull-request
   type: docker-image
   source:
-    repository: mastertinner/gitlab-merge-request-resource
+    repository: spatialbuzz/gitea-pull-request-resource
 
 resources:
 - name: repo-mr
-  type: merge-request
+  type: pull-request
   source:
-    uri: https://gitlab.com/myname/myproject.git
+    uri: https://my.gitea.host/myname/myproject.git
     private_token: XXX
     username: my_username
     password: xxx
 ```
 
 * `uri`: The location of the repository (required)
-* `private_token`: Your GitLab user's private token (required, can be found in your profile settings)
+* `private_token`: Your Gitea user's private token (required, can be found in your profile settings)
 * `private_key`: The private SSH key for SSH auth when pulling
 
   Example:
@@ -38,36 +38,36 @@ resources:
 
 * `username`: The username for HTTP(S) auth when pulling
 * `password`: The password for HTTP(S) auth when pulling
-* `no_ssl`: Set to `true` if the GitLab API should be used over HTTP instead of HTTPS
-* `skip_ssl_verification`: Optional. Connect to GitLab insecurely - i.e. skip SSL validation. Defaults to false if not provided.
+* `no_ssl`: Set to `true` if the Gitea API should be used over HTTP instead of HTTPS
+* `skip_ssl_verification`: Optional. Connect to Gitea insecurely - i.e. skip SSL validation. Defaults to false if not provided.
 
 > Please note that you have to provide either `private_key` or `username` and `password`.
 
 ## Behavior
 
-### `check`: Check for new merge requests
+### `check`: Check for new pull requests
 
-Checks if there are new merge requests or merge requests with new commits.
+Checks if there are new pull requests or pull requests with new commits.
 
-### `in`: Clone merge request source branch
+### `in`: Clone pull request source branch
 
-`git clone`s the source branch of the respective merge request.
+`git clone`s the source branch of the respective pull request.
 
-### `out`: Update a merge request's merge status
+### `out`: Update a pull request's pull status
 
-Updates the merge request's `merge_status` which displays nicely in the GitLab UI and allows to only merge changes if they pass the test.
+Updates the pull request's `status` which displays nicely in the Gitea UI and allows to only pull changes if they pass the test.
 
 #### Parameters
 
-* `repository`: The path of the repository of the merge request's source branch (required)
-* `status`: The new status of the merge request (required, can be either `pending`, `running`, `success`, `failed`, or `canceled`)
-* `build_label`: The label of the build in GitLab (optional, defaults to `"Concourse"`)
+* `repository`: The path of the repository of the pull request's source branch (required)
+* `status`: The new status of the pull request (required, can be either `pending`, `pending`, `error`, `failed`, or `warning`)
+* `build_label`: The label of the build in Gitea (optional, defaults to `"Concourse"`)
 
 ## Example
 
 ```yaml
 jobs:
-- name: test-merge-request
+- name: test-pull-request
   plan:
   - get: repo
     resource: repo-mr

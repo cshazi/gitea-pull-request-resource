@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -exu
 # vim: set ft=sh
 
 set -e -u
@@ -10,7 +10,7 @@ TMPDIR=${TMPDIR:-/tmp}
 
 source "$(dirname "$0")/common.sh"
 
-payload="$(mktemp "${TMPDIR}/gitlab-merge-request-resource.XXXXXX")"
+payload="$(mktemp "${TMPDIR}/gitea-pull-request-resource.XXXXXX")"
 
 cat > "${payload}" <&0
 
@@ -22,13 +22,13 @@ no_ssl="$(jq -r '.source.no_ssl // ""' < "${payload}")"
 version_sha="$(jq -r '.version.sha // ""' < "${payload}")"
 
 if [[ "${uri}" == *"git@"* ]]; then
-  gitlab_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
+  gitea_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
   port="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\2/p')"
   port=${port///} # remove trailing slash
   project_path="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\3/p')"
   protocol='https'
 else
-  gitlab_host="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\2/p')"
+  gitea_host="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\2/p')"
   project_path="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\3/p')"
   protocol="$(echo "${uri}" | sed -rn 's/(https?):\/\/([^\/]*)\/(.*)\.git/\1/p')"
 fi
@@ -39,11 +39,11 @@ fi
 
 version_updated_at=0
 if [ ! -z "${version_sha}" ]; then
-    version_updated_at="$(curl -s -H "private-token: ${private_token}" "${protocol}://${gitlab_host}/api/v3/projects/$(urlencode "${project_path}")/repository/commits/${version_sha}" \
-        | jq '.committed_date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+    version_updated_at="$(curl -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/git/commits/${version_sha}" \
+        | jq '.commit.author.date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
 fi
 
-open_mrs="$(curl -s -H "private-token: ${private_token}" "${protocol}://${gitlab_host}/api/v3/projects/$(urlencode "${project_path}")/merge_requests?state=opened&order_by=updated_at")"
+open_mrs="$(curl -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/pulls?state=open&sort=recentupdate")"
 num_mrs="$(echo "${open_mrs}" | jq 'length')"
 
 new_versions=''
@@ -52,8 +52,10 @@ for i in $(seq 0 $((num_mrs - 1))); do
     mr="$(echo "${open_mrs}" | jq -r '.['"$i"']')"
     mr_sha="$(echo "${mr}" | jq -r '.sha')"
     if [ "${mr_sha}" != "null" ]; then
-        mr_updated_at="$(curl -s -H "private-token: ${private_token}" "${protocol}://${gitlab_host}/api/v3/projects/$(urlencode "${project_path}")/repository/commits/${mr_sha}" \
-            | jq '.committed_date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+        set +e
+        mr_updated_at="$(curl -m 4 -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/git/commits/${mr_sha}" \
+            | jq '.commit.author.date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+        set -e
         if [ "${mr_updated_at}" -gt "${version_updated_at}" ] || [ -z "${version_sha}" ]; then
             new_versions="${new_versions},{\"sha\":\"${mr_sha}\"}"
         fi
