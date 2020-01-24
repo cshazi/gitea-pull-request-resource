@@ -40,7 +40,6 @@ resources:
 * `password`: The password for HTTP(S) auth when pulling
 * `no_ssl`: Set to `true` if the Gitea API should be used over HTTP instead of HTTPS
 * `skip_ssl_verification`: Optional. Connect to Gitea insecurely - i.e. skip SSL validation. Defaults to false if not provided.
-* `depth`: Default: 100. Clone depth for git repo
 
 > Please note that you have to provide either `private_key` or `username` and `password`.
 

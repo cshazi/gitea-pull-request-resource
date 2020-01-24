@@ -27,9 +27,11 @@ uri="$(jq -r '.source.uri // ""' < "${payload}")"
 username="$(jq -r '.source.username // ""' < "${payload}")"
 password="$(jq -r '.source.password // ""' < "${payload}")"
 private_key="$(jq -r '.source.private_key // ""' < "${payload}")"
-depth="$(jq -r '.source.depth // "100"' < "${payload}")"
 version="$(jq -r '.version // ""' < "${payload}")"
-commit_sha="$(echo "${version}" | jq -r '.sha // ""')"
+ref="$(echo "${version}" | jq -r '.ref // ""')"
+commit_sha=$(echo $ref | awk -F':' '{print $1}')
+branch=$(echo $ref | awk -F':' '{print $2}')
+index=$(echo $ref | awk -F':' '{print $3}')
 
 if [[ ! -z "${private_key}" ]]; then
     gitea_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
@@ -50,11 +52,10 @@ else
     echo "default login ${username} password ${password}" > "${HOME}/.netrc" # Save credentials for git push below
 fi
 
-git clone --depth "${depth}" "${uri}" "${destination}"
 
-cd "${destination}"
-
-git reset --hard "${commit_sha}"
+git clone --depth 1 -b "${branch}" "${uri}" "${destination}"
+cd ${destination}
+git fetch origin ${branch}:refs/pull/${index}/head
 
 jq -n "{
     version: ${version},

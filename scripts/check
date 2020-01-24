@@ -19,7 +19,10 @@ configure_ssl_verification "${payload}"
 uri="$(jq -r '.source.uri // ""' < "${payload}")"
 private_token="$(jq -r '.source.private_token // ""' < "${payload}")"
 no_ssl="$(jq -r '.source.no_ssl // ""' < "${payload}")"
-version_sha="$(jq -r '.version.sha // ""' < "${payload}")"
+ref="$(jq -r '.version.ref // ""' < "${payload}")"
+version_sha=$(echo $ref | awk -F':' '{print $1}')
+branch=$(echo $ref | awk -F':' '{print $2}')
+index=$(echo $ref | awk -F':' '{print $3}')
 
 if [[ "${uri}" == *"git@"* ]]; then
   gitea_host="$(echo "${uri}" | sed -rn 's/.*git@(.*):([0-9]*\/+)?(.*)\.git/\1/p')"
@@ -38,9 +41,14 @@ if [ "${no_ssl}" == 'true' ]; then
 fi
 
 version_updated_at=0
+version_created_at=0
+if [ ! -z "${index}" ]; then
+    version_created_at="$(curl -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/pulls/${index}" \
+        | jq '.created_at|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+fi
 if [ ! -z "${version_sha}" ]; then
     version_updated_at="$(curl -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/git/commits/${version_sha}" \
-        | jq '.commit.author.date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+        | jq '.commit.committer.date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
 fi
 
 open_mrs="$(curl -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/pulls?state=open&sort=recentupdate")"
@@ -51,13 +59,18 @@ new_versions=''
 for i in $(seq 0 $((num_mrs - 1))); do
     mr="$(echo "${open_mrs}" | jq -r '.['"$i"']')"
     mr_sha="$(echo "${mr}" | jq -r '.head.sha')"
+    mr_branch="$(echo "${mr}" | jq -r '.head.ref')"
+    mr_index="$(echo "${mr}" | jq -r '.number')"
     if [ "${mr_sha}" != "null" ]; then
         set +e
+
         mr_updated_at="$(curl -m 4 -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/git/commits/${mr_sha}" \
-            | jq '.commit.author.date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+            | jq '.commit.committer.date|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
+        mr_created_at="$(curl -m 4 -s -H "Authorization: token ${private_token}" "${protocol}://${gitea_host}/api/v1/repos/${project_path}/pulls/${mr_index}" \
+            | jq '.created_at|.[:19]|strptime("%Y-%m-%dT%H:%M:%S")|mktime')"
         set -e
-        if [ "${mr_updated_at}" -gt "${version_updated_at}" ] || [ -z "${version_sha}" ]; then
-            new_versions="${new_versions},{\"sha\":\"${mr_sha}\"}"
+        if [ "${mr_created_at}" -gt "${version_created_at}" ] || [ "${mr_updated_at}" -gt "${version_updated_at}" ] || [ -z "${ref}" ]; then
+            new_versions="${new_versions},{\"ref\":\"${mr_sha}:${mr_branch}:${mr_index}\"}"
         fi
     fi
 done
@@ -65,8 +78,8 @@ done
 new_versions="${new_versions#','}" # remove trailing comma
 new_versions="[${new_versions}]" # make JSON array
 
-if [ "${new_versions}" == '[]' ] && ! [ -z "${version_sha}" ]; then
-    new_versions="[{\"sha\":\"${version_sha}\"}]"
+if [ "${new_versions}" == '[]' ] && ! [ -z "${version_sha}" ] && ! [ -z "${branch}" ] && ! [ -z "${index}" ]; then
+    new_versions="[{\"ref\":\"${version_sha}:${branch}:${index}\"}]"
 fi
 
 jq -n "${new_versions}" >&3
