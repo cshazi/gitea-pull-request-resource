@@ -30,6 +30,7 @@ no_ssl="$(jq -r '.source.no_ssl // ""' < "${payload}")"
 params="$(jq -r '.params // ""' < "${payload}")"
 path_to_repo="$(echo "${params}" | jq -r '.repository // ""')"
 new_status="$(echo "${params}" | jq -r '.status // ""')"
+description="$(echo "${params}" | jq -r '.description // ""')"
 build_label="$(echo "${params}" | jq -r '.build_label // "Concourse"')"
 
 if [ -z "${path_to_repo}" ]; then
@@ -73,7 +74,7 @@ curl \
     --request POST \
     --header "Authorization: token ${private_token}" \
     --header 'Content-Type: application/json' \
-    --data "{\"state\":\"${new_status}\",\"context\":\"${build_label}\",\"target_url\":\"${target_url}\"}" \
+    --data "{\"state\":\"${new_status}\",\"description\":\"${description}\",\"context\":\"${build_label}\",\"target_url\":\"${target_url}\"}" \
     "${protocol}://${gitea_host}/api/v1/repos/${project_path}/statuses/${commit_sha}" > /dev/null
 
 version="{\"ref\":\"${commit_sha}:${branch}:${index}\"}"

@@ -62,6 +62,7 @@ Updates the pull request's `status` which displays nicely in the Gitea UI and al
 * `repository`: The path of the repository of the pull request's source branch (required)
 * `status`: The new status of the pull request (required, can be either `pending`, `pending`, `error`, `failed`, or `warning`)
 * `build_label`: The label of the build in Gitea (optional, defaults to `"Concourse"`)
+* `description`: The description to pass to Gitea (optional)
 
 ## Example
 
